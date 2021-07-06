@@ -164,7 +164,7 @@ class Controller:
                     error=status.error,
                     output=status.output,
                 )
-                self._jobs.move_to_completed(job)
+                self._jobs.complete_job(job)
         finally:
             JM_LOCK.release()
 
@@ -231,15 +231,12 @@ class Controller:
         """
         if launcher is not None:
             launcher = launcher.lower()
-            # Init Slurm Launcher
             if launcher == "slurm":
                 self._launcher = SlurmLauncher()
                 self._jobs.set_launcher(self._launcher)
-            # Run all ensembles locally
             elif launcher == "local":
                 self._launcher = LocalLauncher()
                 self._jobs.set_launcher(self._launcher)
-            # Init PBSPro launcher
             elif launcher == "pbs":
                 self._launcher = PBSLauncher()
                 self._jobs.set_launcher(self._launcher)
@@ -376,7 +373,7 @@ class Controller:
             self._jobs.restart_job(job_step.name, job_id, entity.name)
         else:
             logger.debug(f"Launching {entity.name}")
-            self._jobs.add_job(job_step.name, job_id, entity)
+            self._jobs.create_job(job_step.name, job_id, entity)
 
     def _create_batch_job_step(self, entity_list):
         """Use launcher to create batch job step

@@ -36,6 +36,7 @@ from ..utils.helpers import init_default
 from .entityList import EntityList
 from .model import Model
 from .strategies import create_all_permutations, random_permutations, step_values
+from ..constants import JobFamily
 
 logger = get_logger(__name__)
 
@@ -86,6 +87,10 @@ class Ensemble(EntityList):
     @property
     def models(self):
         return self.entities
+
+    @property
+    def job_family(self):
+        return JobFamily.JOB
 
     def _initialize_entities(self, **kwargs):
         """Initialize all the models within the ensemble based

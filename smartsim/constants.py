@@ -25,6 +25,17 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 # Constants for SmartSim
+from enum import Enum
+
+class JobType(Enum):
+    STEP = 1
+    GROUP = 2
+    BATCH = 3
+
+class JobFamily(Enum):
+    JOB = 1
+    DBJOB = 2
+
 
 # Interval for Job Manager
 LOCAL_JM_INTERVAL = 2
@@ -52,3 +63,4 @@ SMARTSIM_STATUS = {
 # Status groupings
 TERMINAL_STATUSES = (STATUS_CANCELLED, STATUS_COMPLETED, STATUS_FAILED)
 LIVE_STATUSES = (STATUS_RUNNING, STATUS_PAUSED, STATUS_NEW)
+

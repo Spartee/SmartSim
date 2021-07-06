@@ -34,6 +34,7 @@ class LocalStep(Step):
         super().__init__(name, cwd)
         self.run_settings = run_settings
         self.env = self._set_env()
+        self.alloc = None
 
     def get_launch_cmd(self):
         cmd = []

@@ -30,13 +30,12 @@ from threading import Thread
 
 from ..config import CONFIG
 from ..constants import LOCAL_JM_INTERVAL, TERMINAL_STATUSES
-from ..database import Orchestrator
 from ..database.orchestrator import get_ip_from_host
-from ..entity import DBNode
 from ..error import SmartSimError
 from ..launcher import LocalLauncher
 from ..utils import get_logger
-from .job import Job
+from .job import Job, JobDict
+from ..constants import JobFamily, JobType
 
 logger = get_logger(__name__)
 
@@ -61,22 +60,22 @@ class JobManager:
         :type: SmartSim.Launcher
         """
         # active jobs
-        self.jobs = {}
-        self.db_jobs = {}
+        self.jobs = JobDict()
 
         # completed jobs
-        self.completed = {}
+        self.completed = JobDict()
 
         self.actively_monitoring = False  # on/off flag
         self._launcher = launcher  # reference to launcher
         self._lock = lock  # thread lock
 
+
     def start(self):
         """Start a thread for the job manager"""
-        self.monitor = Thread(name="JobManager", daemon=True, target=self.run)
+        self.monitor = Thread(name="JobManager", daemon=True, target=self._run)
         self.monitor.start()
 
-    def run(self):
+    def _run(self):
         """Start the JobManager thread to continually check
         the status of all jobs. Whichever launcher is selected
         by the user will be responsible for returning statuses
@@ -95,8 +94,8 @@ class JobManager:
         while self.actively_monitoring:
 
             self._thread_sleep()
-            self.check_jobs()  # update all job statuses at once
-            for _, job in self().items():
+
+            for job in self.jobs:
 
                 # if the job has errors then output the report
                 # this should only output once
@@ -104,18 +103,18 @@ class JobManager:
                     if int(job.returncode) != 0:
                         logger.warning(job)
                         logger.warning(job.error_report())
-                        self.move_to_completed(job)
+                        self.complete_job(job)
                     else:
                         # job completed without error
                         logger.info(job)
-                        self.move_to_completed(job)
+                        self.complete_job(job)
 
             # if no more jobs left to actively monitor
-            if not self():
+            if len(self.jobs) < 1:
                 self.actively_monitoring = False
                 logger.debug("Sleeping, no jobs to monitor")
 
-    def move_to_completed(self, job):
+    def complete_job(self, job):
         """Move job to completed queue so that its no longer
            actively monitored by the job manager
 
@@ -124,16 +123,30 @@ class JobManager:
         """
         self._lock.acquire()
         try:
-            self.completed[job.ename] = job
+            job_store = self.jobs[job]
+            self.completed[job.ename] = job_store
             job.record_history()
 
             # remove from actively monitored jobs
-            if job.ename in self.db_jobs.keys():
-                del self.db_jobs[job.ename]
-            elif job.ename in self.jobs.keys():
-                del self.jobs[job.ename]
+            self.jobs.remove(job)
         finally:
             self._lock.release()
+
+    def create_job(self, entity, job_name, job_id, managed, batch_id=None):
+        self._lock.acquire()
+        try:
+            #TODO in progress
+            self.jobs.add(entity.name,
+                          job_name,
+                          job_id,
+                          entity.job_type,
+                          entity.job_family,
+                          managed)
+        finally:
+            self._lock.release()
+
+    def __len__(self):
+        return len(self.jobs)
 
     def __getitem__(self, entity_name):
         """Return the job associated with the name of the entity
@@ -146,41 +159,13 @@ class JobManager:
         """
         self._lock.acquire()
         try:
-            if entity_name in self.db_jobs.keys():
-                return self.db_jobs[entity_name]
-            if entity_name in self.jobs.keys():
+            if entity_name in self.jobs:
                 return self.jobs[entity_name]
-            if entity_name in self.completed.keys():
+            if entity_name in self.completed:
                 return self.completed[entity_name]
             raise KeyError
         finally:
             self._lock.release()
-
-    def __call__(self):
-        """Returns dictionary all jobs for () operator
-
-        :returns: Dictionary of all jobs
-        :rtype: dictionary
-        """
-        all_jobs = {**self.jobs, **self.db_jobs}
-        return all_jobs
-
-    def add_job(self, job_name, job_id, entity):
-        """Add a job to the job manager which holds specific jobs by type.
-
-        :param job_name: name of the job step
-        :type job_name: str
-        :param job_id: job step id created by launcher
-        :type job_id: str
-        :param entity: entity that was launched on job step
-        :type entity: SmartSimEntity
-        """
-        # all operations here should be atomic
-        job = Job(job_name, job_id, entity)
-        if isinstance(entity, (DBNode, Orchestrator)):
-            self.db_jobs[entity.name] = job
-        else:
-            self.jobs[entity.name] = job
 
     def is_finished(self, entity):
         """Detect if a job has completed
@@ -192,7 +177,7 @@ class JobManager:
         """
         self._lock.acquire()
         try:
-            job = self[entity.name]  # locked operation
+            job = self.jobs[entity.name]  # locked operation
             if entity.name in self.completed:
                 if job.status in TERMINAL_STATUSES:
                     return True
@@ -237,9 +222,9 @@ class JobManager:
         self._lock.acquire()
         try:
             if entity.name in self.completed:
-                return self.completed[entity.name].status
+                return self.completed[entity.name].job.status
 
-            job = self[entity.name]  # locked
+            job = self.jobs[entity.name].job
         except KeyError:
             raise SmartSimError(
                 f"Entity by the name of {entity.name} has not been launched by this Controller"
@@ -281,13 +266,16 @@ class JobManager:
         """
         self._lock.acquire()
         try:
-            job = self.completed[entity_name]
-            del self.completed[entity_name]
+            job_store = self.completed[entity_name]
+            job = job_store.job
+            self.completed.remove(job)
+
             job.reset(job_name, job_id)
-            if isinstance(job.entity, (DBNode, Orchestrator)):
-                self.db_jobs[entity_name] = job
-            else:
-                self.jobs[entity_name] = job
+            self.jobs.add(entity_name,
+                          job_name,
+                          job_id,
+                          job_store.job_type,
+                          job_store.job_family)
         finally:
             self._lock.release()
 
@@ -298,10 +286,12 @@ class JobManager:
         :rtype: list[str]
         """
         addresses = []
-        for db_job in self.db_jobs.values():
-            for combine in itertools.product(db_job.hosts, db_job.entity.ports):
+        db_jobs = self.jobs.by_family(JobFamily.DBJOB)
+        for db_job in db_jobs:
+            for combine in itertools.product(db_job.hosts, db_job.ports):
                 ip_addr = get_ip_from_host(combine[0])
-                addresses.append(":".join((ip_addr, str(combine[1]))))
+                address = ":".join((ip_addr, str(combine[1])))
+                addresses.append(address)
         return addresses
 
     def set_db_hosts(self, orchestrator):
@@ -314,10 +304,12 @@ class JobManager:
         self._lock.acquire()
         try:
             if orchestrator.batch:
-                self.db_jobs[orchestrator.name].hosts = orchestrator.hosts
+                self.jobs[orchestrator.name].job.hosts = orchestrator.hosts
+                self.jobs[orchestrator.name].job.ports = orchestrator.ports
             else:
                 for dbnode in orchestrator:
-                    self.db_jobs[dbnode.name].hosts = [dbnode.host]
+                    self.jobs[dbnode.name].job.hosts = [dbnode.host]
+                    self.jobs[dbnode.name].job.ports = dbnode.ports
         finally:
             self._lock.release()
 
@@ -330,6 +322,3 @@ class JobManager:
         else:
             time.sleep(CONFIG.jm_interval)
 
-    def __len__(self):
-        # number of active jobs
-        return len(self.db_jobs) + len(self.jobs)

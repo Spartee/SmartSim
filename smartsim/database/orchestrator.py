@@ -24,10 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import os
-import os.path as osp
 import socket
-import sys
 import time
 from os import getcwd
 
@@ -37,11 +34,11 @@ from smartredis.error import RedisReplyError
 
 from ..config import CONFIG
 from ..entity import DBNode, EntityList
-from ..error import SmartSimError, SSConfigError
+from ..error import SmartSimError
 from ..launcher.util.shell import execute_cmd
 from ..settings.settings import RunSettings
+from ..constants import JobFamily
 from ..utils import get_logger
-from ..utils.helpers import expand_exe_path, get_env
 
 logger = get_logger(__name__)
 
@@ -92,6 +89,10 @@ class Orchestrator(EntityList):
         if not self._hosts:
             self._hosts = self._get_db_hosts()
         return self._hosts
+
+    @property
+    def job_family(self):
+        return JobFamily.DBJOB
 
     def remove_stale_files(self):
         """Can be used to remove database files of a previous launch"""

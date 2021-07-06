@@ -24,6 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from ..constants import JobFamily
 from ..error import EntityExistsError
 from ..utils.helpers import init_default
 from .entity import SmartSimEntity
@@ -48,6 +49,10 @@ class Model(SmartSimEntity):
         self.incoming_entities = []
         self._key_prefixing_enabled = False
         self.files = None
+
+    @property
+    def job_family(self):
+        return JobFamily.JOB
 
     def register_incoming_entity(self, incoming_entity):
         """Register future communication between entities.

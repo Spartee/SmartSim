@@ -24,6 +24,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from ..constants import JobType
 
 class EntityList:
     """Abstract class for containers for SmartSimEntities"""
@@ -53,6 +54,12 @@ class EntityList:
     def type(self):
         """Return the name of the class"""
         return type(self).__name__
+
+    @property
+    def job_type(self):
+        if self.batch:
+            return JobType.BATCH
+        return JobType.GROUP
 
     def set_path(self, new_path):
         self.path = new_path

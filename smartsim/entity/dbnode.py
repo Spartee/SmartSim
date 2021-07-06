@@ -28,8 +28,8 @@ import os
 import os.path as osp
 import time
 
-from smartsim.error.errors import SmartSimError
-
+from ..constants import JobFamily
+from ..error import SmartSimError
 from ..utils import get_logger
 from .entity import SmartSimEntity
 
@@ -56,6 +56,10 @@ class DBNode(SmartSimEntity):
         if not self._host:
             self._host = self._parse_db_host()
         return self._host
+
+    @property
+    def job_family(self):
+        return JobFamily.DBJOB
 
     def set_host(self, host):
         self._host = str(host)

@@ -25,8 +25,61 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import time
+from collections import namedtuple
+from ..constants import STATUS_NEW, JobType, JobFamily
 
-from ..constants import STATUS_NEW
+
+JobStore = namedtuple("JobStore", ["job", "job_type", "job_family", "managed"])
+
+
+class JobDict:
+
+    def __init__(self):
+        self._jobs = {} # entity name : JobStore(Job, JobType, JobFamily)
+
+    def __getitem__(self, name):
+        return self._jobs[name]
+
+    def __setitem__(self, name, job_store):
+        self._jobs[name] = job_store
+
+    def __contains__(self, name):
+        if name in self._jobs.keys():
+            return True
+        return False
+
+    def __len__(self):
+        return len(self._jobs)
+
+    def __iter__(self):
+        for job_store in self._jobs.values():
+            yield job_store.job
+
+    def join(self, other):
+        return {**self._jobs, **other._jobs}
+
+    def add(self, entity_name, job_name, job_id,  job_type, job_family, managed):
+        job = Job(job_name, job_id, entity_name)
+        job_store = JobStore(job, job_type, job_family)
+        self._jobs[entity_name] = job_store
+
+    def remove(self, job):
+        if job.ename in self._jobs:
+            del self._jobs[job.ename]
+
+    def by_family(self, family=JobFamily.JOB):
+        jobs = []
+        for job_store in self._jobs.values():
+            if job_store.job_family == family:
+                jobs.append(job_store.job)
+        return jobs
+
+    def by_type(self, job_type=JobType.STEP):
+        jobs = []
+        for job_store in self._jobs.values():
+            if job_store.job_type == job_type:
+                jobs.append(job_store.job)
+        return jobs
 
 
 class Job:
@@ -36,32 +89,21 @@ class Job:
     the controller class.
     """
 
-    def __init__(self, job_name, job_id, entity):
+    def __init__(self, job_name, job_id, entity_name):
         """Initialize a Job.
-
-        :param job_name: Name of the job step
-        :type job_name: str
-        :param job_id: The id associated with the job
-        :type job_id: str
-        :param entity: The SmartSim entity associated with the job
-        :type entity: SmartSimEntity
         """
         self.name = job_name
         self.jid = job_id
-        self.entity = entity
+        self.ename = entity_name
         self.status = STATUS_NEW
-        self.raw_status = None  # status before smartsim status mapping is applied
+        self.raw_status = None          # status before smartsim status mapping is applied
         self.returncode = None
-        self.output = None  # only populated if it's system related (e.g. a command failed immediately)
-        self.error = None  # same as output
-        self.hosts = []  # currently only used for DB jobs
+        self.output = None              # only populated if it's system related (e.g. a command failed immediately)
+        self.error = None               # same as output
+        self.hosts = []                 # for db jobs only
+        self.ports = []                 # for db jobs only
         self.start_time = time.time()
         self.history = History()
-
-    @property
-    def ename(self):
-        """Return the name of the entity this job was created from"""
-        return self.entity.name
 
     def set_status(self, new_status, raw_status, returncode, error=None, output=None):
         """Set the status  of a job.
@@ -96,7 +138,8 @@ class Job:
         self.returncode = None
         self.output = None
         self.error = None
-        self.hosts = []
+        self.hosts = []                 # for db jobs only
+        self.ports = []                 # for db jobs only
         self.start_time = time.time()
         self.history.new_run()
 

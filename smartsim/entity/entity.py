@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os.path as osp
-
+from ..constants import JobType
 
 class SmartSimEntity:
     def __init__(self, name, path, run_settings):
@@ -51,6 +51,10 @@ class SmartSimEntity:
     def type(self):
         """Return the name of the class"""
         return type(self).__name__
+
+    @property
+    def job_type(self):
+        return JobType.STEP
 
     def __repr__(self):
         return self.name
