@@ -1,0 +1,68 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+from pathlib import Path
+
+from smartsim.core.cli.build import Build
+from smartsim.core.cli.clean import Clean
+from smartsim.core.cli.session import Session
+from smartsim.core.cli.utils import  _get_install_path
+
+
+def _usage():
+    usage = [
+        "smart <command> [<args>]\n",
+        "Commands:",
+        "\tsession   Start a SmartSim session",
+        "\tbuild     Build SmartSim dependencies (Redis, RedisAI, ML runtimes)",
+        "\tclean     Remove previous ML runtime installation",
+        "\tclobber   Remove all previous dependency installations",
+
+        "\nDeveloper:",
+        "\tsite      Print the installation site of SmartSim",
+        "\tdbcli     Print the path to the redis-cli binary"
+        "\n"
+        ]
+    return "\n".join(usage)
+
+
+class SmartCli:
+
+    install_path = _get_install_path()
+
+    def __init__(self):
+        parser = argparse.ArgumentParser(
+            description='SmartSim command line interface',
+            usage=_usage())
+
+        parser.add_argument('command', help='Subcommand to run')
+
+        args = parser.parse_args(sys.argv[1:2])
+        if not hasattr(self, args.command):
+            parser.print_help()
+            exit(0)
+        getattr(self, args.command)()
+
+    def session(self):
+        Session()
+
+    def build(self):
+        Build(self.install_path)
+        exit(0)
+
+    def clean(self):
+        Clean(self.install_path)
+        exit(0)
+
+    def site(self):
+        print(self.install_path)
+        exit(0)
+
+    def dbcli(self):
+        script_path = self.install_path.joinpath("core/bin/redis-cli")
+        print(script_path)
+        exit(0)
+
+if __name__ == '__main__':
+    SmartCli()
