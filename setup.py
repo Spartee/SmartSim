@@ -137,13 +137,13 @@ setup(
 # ... in setup.cfg
     packages=["smartsim"],
     package_data={"smartsim": [
-        "bin/*"
+        "core/bin/*"
     ]},
     cmdclass={
         "build_py": SmartSimBuild,
         "install": InstallPlatlib
     },
-    scripts=["./smart"],
+    scripts=["./smartsim/core/cli/smart"],
     zip_safe=False,
     distclass=BinaryDistribution
 )

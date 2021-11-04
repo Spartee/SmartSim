@@ -31,10 +31,8 @@ from pprint import pformat
 
 import pandas as pd
 from tqdm import trange
-
-from smartsim.control.manifest import Manifest
-
-from .control import Controller, Manifest
+from .core.control import Controller
+from .core.manifest import Manifest
 from .entity import Ensemble, Model
 from .error import SmartSimError
 from .generation import Generator
