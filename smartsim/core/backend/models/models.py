@@ -5,6 +5,8 @@ from sqlalchemy.sql.expression import select
 from sqlalchemy.sql.schema import ForeignKey
 from sqlalchemy.sql.sqltypes import Date, DateTime
 
+from ..schemas.enums import JobType, AppType
+
 from ..db.session import DBBase
 from ...common.constants import Status, Launcher
 
@@ -26,6 +28,12 @@ class ExperimentProto(BaseProto):
     launcher = Column(String(20), default=Launcher.local)
     description = Column(String)
 
+    # all below Proto contain a .experiment attribute because of these backrefs
+    models = relationship("ModelProto", backref="experiment")
+    ensembles = relationship("EnsembleProto", backref="experiment")
+    apps = relationship("AppProto", backref="experiment")
+    jobs = relationship("JobProto", backref="experiment")
+
 
 class JobProto(BaseProto):
     __tablename__ = "jobs"
@@ -33,50 +41,22 @@ class JobProto(BaseProto):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, unique=True, index=True)
     status = Column(String(20), default=Status.STATUS_NEW, index=True)
-    start_date = DateTime()
-    end_date = DateTime()
-    task_id = Column(Integer)
+    job_type = Column(String(20))
+    entity_type = Column(String(20))
+    task_ids = Column(PickleType, nullable=True)
+    wlm_id = Column(String(20), nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    job_data = Column(PickleType, nullable=True)
 
-    entity_id = Column(
-        Integer, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
     )
 
-
-class JobGroupProto(BaseProto):
-    __tablename__ = "jobgroups"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String, unique=True, index=True)
-    status = Column(String(20), default=Status.STATUS_NEW, index=True)
-    start_date = DateTime()
-    end_date = DateTime()
-    task_ids = Column(PickleType) # list of ints
-
-    entitylist_id = Column(
-        Integer, ForeignKey("entitylists.id", ondelete="CASCADE"), nullable=False
-    )
-
-
-class JobBatchProto(BaseProto):
-    __tablename__ = "jobbatches"
+class ModelProto(BaseProto):
+    __tablename__ = "models"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String, unique=True, index=True)
-    status = Column(String(20), default=Status.STATUS_NEW, index=True)
-    start_date = DateTime()
-    end_date = DateTime()
-    task_ids = Column(PickleType) # list of ints
-
-    entitylist_id = Column(
-        Integer, ForeignKey("entitylists.id", ondelete="CASCADE"), nullable=False
-    )
-
-
-class EntityProto(BaseProto):
-    __tablename__ = "entities"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    entity_type = Column(String(50))
     name = Column(String(60), unique=True, index=True)
     path = Column(String(256))
     params = Column(PickleType)
@@ -85,36 +65,15 @@ class EntityProto(BaseProto):
     experiment_id = Column(
         Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
     )
-
-
-    __mapper_args__ = {
-        'polymorphic_identity':'entity',
-        'polymorphic_on':entity_type
-    }
-
-class ModelProto(EntityProto):
-    __tablename__ = "models"
-
-    id = Column(Integer, ForeignKey('entities.id'), primary_key=True)
-
+    # also contains a .ensemble attribute b/c of backref in ensemble
     ensemble_id = Column(
         Integer, ForeignKey("ensembles.id", ondelete="CASCADE"), nullable=True
     )
-    ensemble = relationship(
-        "EnsembleProto",
-        backref=backref("models", passive_deletes=True, lazy="dynamic"),
-    )
 
-    __mapper_args__ = {
-        'polymorphic_identity':'model'
-    }
-
-class EntityListProto(BaseProto):
-
-    __tablename__ = "entitylists"
+class EnsembleProto(BaseProto):
+    __tablename__ = "ensembles"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    entitylist_type = Column(String(20))
     name = Column(String(255), unique=True, index=True)
     path = Column(String(255))
     params = Column(PickleType, nullable=True)
@@ -124,25 +83,41 @@ class EntityListProto(BaseProto):
     experiment_id = Column(
         Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
     )
-
-    __mapper_args__ = {
-        'polymorphic_identity':'entitylist',
-        'polymorphic_on':entitylist_type
-    }
-
-class EnsembleProto(EntityListProto):
-    __tablename__ = "ensembles"
-
-    id = Column(Integer, ForeignKey('entitylists.id'), primary_key=True)
-    models = relationship("ModelProto", back_populates="ensemble")
-
-    __mapper_args__ = {
-        'polymorphic_identity':'ensemble',
-    }
+    models = relationship("ModelProto", backref="ensemble")
 
 
-#class OrchestratorProto(EntityListProto):
-#    __tablename__ = "orchestrators"
+class AppWorkerProto(BaseProto):
+    __tablename__ = "app_components"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(60), unique=True, index=True)
+    path = Column(String(256))
+    params = Column(PickleType)
+    run_settings = Column(PickleType)
+
+    is_master = Column(Boolean, default=False)
+    # also contains .app field from ApplicationProto.backref
+    app_id = Column(Integer, ForeignKey("apps.id", ondelete="CASCADE"), nullable=False)
 
 
+class AppProto(BaseProto):
+    __tablename__ = "apps"
 
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(255), unique=True, index=True)
+    path = Column(String(255))
+    params = Column(PickleType, nullable=True)
+    run_settings = Column(PickleType)
+    batch_settings = Column(PickleType, nullable=True)
+
+    has_master = Column(Boolean, default=False)
+    app_type = Column(String(20))
+    batch = Column(Boolean)
+    launcher = Column(String(20))
+    app_data = Column(PickleType, nullable=True)
+
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
+    )
+
+    components = relationship("AppWorkerProto", backref="app")

@@ -2,14 +2,14 @@
 import logging
 from typing import List
 from .. import crud
-from ..schemas.manifest import ManifestCheckSchema, ManifestSchema
+from ..schemas.manifest import ManifestSchema
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from .utils.db import get_db
 
 router = APIRouter()
 
-logger = logging.getLogger('example')
+logger = logging.getLogger('smartsim')
 
 
 
@@ -19,11 +19,10 @@ logger = logging.getLogger('example')
             operation_id="check_manifest",
             status_code=200)
 async def check(
-    manifest: ManifestCheckSchema,
+    manifest: ManifestSchema,
     db: Session = Depends(get_db),
 ):
-    return manifest.get_names()
-
+    return manifest
 
 @router.post("/start",
             response_model=ManifestSchema,
@@ -35,26 +34,26 @@ async def start(
     db: Session = Depends(get_db),
 ):
     """Start the names listed in the manifest and return the names"""
-    return manifest.get_names()
+    return manifest
 
-
-@router.get("/stop",
+@router.post("/stop",
             response_model=ManifestSchema,
             name="execute:stop",
-            operation_id="stop")
+            operation_id="stop",
+            status_code=200)
 async def stop(
     manifest: ManifestSchema,
     db: Session = Depends(get_db)
 ):
-    return None
+    return manifest
 
 
-@router.post("/status",
-             response_model=JobStatusSchema,
-             name="execute:status",
-             operation_id="get_status")
-async def experiment_create(
-    manifest: ManifestSchema,
-    db: Session = Depends(get_db)):
-    pass
+#@router.post("/status",
+#             response_model=JobStatusSchema,
+#             name="execute:status",
+#             operation_id="get_status")
+#async def experiment_create(
+#    manifest: ManifestSchema,
+#    db: Session = Depends(get_db)):
+#    pass
 

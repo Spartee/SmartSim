@@ -1,8 +1,8 @@
+from datetime import datetime
 from typing import Optional, Dict
 
 from pydantic import BaseModel
-
-
+from .enums import LauncherType
 # =======================
 # Experiment Base Schema
 # =======================
@@ -25,7 +25,7 @@ class ExpDBSchemaBase(ExpSchemaBase):
 # Properties to receive via API on creation
 class ExpCreateSchema(ExpSchemaBase):
     path: str
-    launcher: str
+    launcher: LauncherType
 
 # Properties to receive via API on update
 class ExpUpdateSchema(ExpSchemaBase):
@@ -34,10 +34,13 @@ class ExpUpdateSchema(ExpSchemaBase):
 # Additional properties stored in DB
 class ExpDBSchema(ExpDBSchemaBase):
     path: str
-    launcher: str
+    launcher: LauncherType
 
 # Additional properties to return to client via API
 class ExpSchema(ExpSchemaBase):
+    id: int
+    created_on: datetime
+    updated_on: Optional[datetime]
     class Config:
         orm_mode = True
 

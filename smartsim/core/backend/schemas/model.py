@@ -1,4 +1,5 @@
 
+from datetime import datetime
 from typing import Optional, Dict, Any
 
 from pydantic import BaseModel
@@ -16,13 +17,11 @@ class ModelSchemaBase(BaseModel):
     path: str
     params: Dict[str, Any]
     run_settings: Dict[str, Any]
-    experiment_name: str
 
 # Properties needed in DB only
 class ModelDBSchemaBase(ModelSchemaBase):
     id: int
     experiment_id: int
-    experiment: ExpSchema
 
     class Config:
         orm_mode = True
@@ -41,10 +40,14 @@ class ModelUpdateSchema(ModelSchemaBase):
 
 # Additional properties stored in DB
 class ModelDBSchema(ModelDBSchemaBase):
-    pass
+    experiment_id: int
+    ensemble_id: int
 
 # Additional properties to return to client via API
 class ModelSchema(ModelSchemaBase):
+    id: int
+    created_on: datetime
+    updated_on: Optional[datetime]
 
     class Config:
         orm_mode = True
