@@ -48,6 +48,7 @@ STATUS_PAUSED = "Paused"
 
 # SmartSim status mapping
 SMARTSIM_STATUS = {
+    "Running": STATUS_RUNNING,
     "Paused": STATUS_PAUSED,
     "Completed": STATUS_COMPLETED,
     "Cancelled": STATUS_CANCELLED,

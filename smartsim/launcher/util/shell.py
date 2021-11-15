@@ -8,62 +8,13 @@ from ...utils import get_env, get_logger
 
 logger = get_logger(__name__)
 
-try:
-    level = get_env("SMARTSIM_LOG_LEVEL")
-    verbose_shell = bool(level == "developer")
-except SSConfigError:
-    verbose_shell = False
 
+from smartsim.worker import tasks
 
 def execute_cmd(cmd_list, shell=False, cwd=None, env=None, proc_input="", timeout=None):
-    """Execute a command locally
-
-    :param cmd_list: list of command with arguments
-    :type cmd_list: list of str
-    :param shell: run in system shell, defaults to False
-    :type shell: bool, optional
-    :param cwd: current working directory, defaults to None
-    :type cwd: str, optional
-    :param env: environment to launcher process with,
-                defaults to None (current env)
-    :type env: dict, optional
-    :param proc_input: input to the process, defaults to ""
-    :type proc_input: str, optional
-    :param timeout: timeout of the process, defaults to None
-    :type timeout: int, optional
-    :raises ShellError: if timeout of process was exceeded
-    :raises ShellError: if child process raises an error
-    :return: returncode, output, and error of the process
-    :rtype: tuple of (int, str, str)
-    """
-    global verbose_shell
-
-    if verbose_shell:
-        source = "shell" if shell else "Popen"
-        logger.debug(f"Executing {source} cmd: {' '.join(cmd_list)}")
-
-    # spawning the subprocess and connecting to its output
-    proc = psutil.Popen(
-        cmd_list, stderr=PIPE, stdout=PIPE, stdin=PIPE, cwd=cwd, shell=shell, env=env
-    )
-    try:
-        proc_input = proc_input.encode("utf-8")
-        out, err = proc.communicate(input=proc_input, timeout=timeout)
-    except TimeoutExpired as e:
-        proc.kill()
-        _, errs = proc.communicate()
-        logger.error(errs)
-        raise ShellError(
-            "Failed to execute command, timeout reached", e, cmd_list
-        ) from None
-    except OSError as e:
-        raise ShellError(
-            "Exception while attempting to start a shell process", e, cmd_list
-        ) from None
-
-    # decoding the output and err and return as a string tuple
-    return proc.returncode, out.decode("utf-8"), err.decode("utf-8")
-
+    task = tasks.execute_command(cmd_list, shell, cwd, env, proc_input, timeout)
+    result = task.wait(propagate=True)
+    return result
 
 def execute_async_cmd(cmd_list, cwd, env=None, out=PIPE, err=PIPE):
     """Execute an asynchronous command

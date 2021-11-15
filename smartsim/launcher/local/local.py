@@ -89,15 +89,12 @@ class LocalLauncher:
         :param step: LocalStep instance to run
         :type step: LocalStep
         """
-        if not self.task_manager.actively_monitoring:
-            self.task_manager.start()
-
         out, err = step.get_output_files()
-        output = open(out, "w+")
-        error = open(err, "w+")
+        #output = open(out, "w+")
+        #error = open(err, "w+")
         cmd = step.get_launch_cmd()
         task_id = self.task_manager.start_task(
-            cmd, step.cwd, env=step.env, out=output, err=error
+            cmd, step.cwd, env=step.env, out=out, err=err
         )
         self.step_mapping.add(step.name, task_id=task_id, managed=False)
         return task_id

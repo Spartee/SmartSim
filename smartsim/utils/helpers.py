@@ -33,8 +33,8 @@ from os import environ
 from shutil import which
 
 import psutil
-
 from ..error import SSConfigError
+from smartsim.worker import tasks
 
 
 def get_ip_from_interface(interface):
@@ -76,21 +76,11 @@ def expand_exe_path(exe):
     :param exe: exectable or file
     :type exe: str
     """
-
-    # which returns none if not found
-    in_path = which(exe)
-    if not in_path:
-        if os.path.isfile(exe) and os.access(exe, os.X_OK):
-            return os.path.abspath(exe)
-        if os.path.isfile(exe) and not os.access(exe, os.X_OK):
-            raise SSConfigError(f"File, {exe}, is not an executable")
-        raise SSConfigError(f"Could not locate executable {exe}")
-    return os.path.abspath(in_path)
-
+    return tasks.expand_exe_pathh.delay(exe).wait(propagate=True)
 
 def is_valid_cmd(command):
     try:
-        expand_exe_path(command)
+        tasks.expand_exe_pathh.delay(command).wait(propagate=True)
         return True
     except SSConfigError:
         return False
@@ -102,12 +92,7 @@ def get_env(env_var):
     :param str env_var: environment variable to retrieve
     :throws: SSConfigError
     """
-    try:
-        value = environ[env_var]
-        return value
-    except KeyError as e:
-        raise SSConfigError("SmartSim environment not set up!") from e
-
+    return tasks.get_envv.delay(env_var).wait(propagate=True)
 
 color2num = dict(
     gray=30,

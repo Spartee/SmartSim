@@ -37,10 +37,9 @@ from .entity import Ensemble, Model
 from .error import SmartSimError
 from .generation import Generator
 from .utils import get_logger
-from .utils.helpers import colorize, init_default, is_valid_cmd
+from .utils.helpers import colorize, init_default
 
 logger = get_logger(__name__)
-
 
 class Experiment:
     """Experiments are the main user interface in SmartSim.

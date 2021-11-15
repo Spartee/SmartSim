@@ -47,7 +47,7 @@ from ..settings.base import RunSettings
 from ..utils import get_logger
 
 logger = get_logger(__name__)
-
+from smartsim.worker import tasks
 
 class Orchestrator(EntityList):
     """The Orchestrator is an in-memory database that can be launched
@@ -124,29 +124,10 @@ class Orchestrator(EntityList):
 
         :raises SmartSimError: if cluster creation fails
         """
-        ip_list = []
-        for host in self.hosts:
-            ip = get_ip_from_host(host)
-            for port in self.ports:
-                address = ":".join((ip, str(port) + " "))
-                ip_list.append(address)
-
-        # call cluster command
-        redis_cli = CONFIG.redis_cli
-        cmd = [redis_cli, "--cluster", "create"]
-        cmd += ip_list
-        cmd += ["--cluster-replicas", "0"]
-        returncode, out, err = execute_cmd(cmd, proc_input="yes", shell=False)
-
-        if returncode != 0:
-            logger.error(out)
-            logger.error(err)
-            raise SmartSimError("Database '--cluster create' command failed")
-        logger.debug(out)
-
-        # Ensure cluster has been setup correctly
-        self.check_cluster_status()
-        logger.info(f"Database cluster created with {self.num_shards} shards")
+        task = tasks.create_redis_cluster.delay(self.hosts, self.ports)
+        task.wait()
+        if task.status != "SUCCESS":
+            raise SmartSimError("Cluster creation failed")
 
     def check_cluster_status(self, trials=10):  # cov-wlm
         """Check that a cluster is up and running
@@ -154,29 +135,10 @@ class Orchestrator(EntityList):
         :type trials: int, optional
         :raises SmartSimError: If cluster status cannot be verified
         """
-        host_list = []
-        for host in self.hosts:
-            for port in self.ports:
-                host_dict = dict()
-                host_dict["host"] = get_ip_from_host(host)
-                host_dict["port"] = port
-                host_list.append(host_dict)
-
-        logger.debug("Beginning database cluster status check...")
-        while trials > 0:
-            # wait for cluster to spin up
-            time.sleep(5)
-            try:
-                redis_tester = RedisCluster(startup_nodes=host_list)
-                redis_tester.set("__test__", "__test__")
-                redis_tester.delete("__test__")
-                logger.debug("Cluster status verified")
-                return
-            except (ClusterDownError, RedisClusterException, redis.RedisError):
-                logger.debug("Cluster still spinning up...")
-                trials -= 1
-        if trials == 0:
-            raise SmartSimError("Cluster setup could not be verified")
+        task = tasks.check_cluster_status(self.hosts, self.ports, trials)
+        task.wait()
+        if task.status != "SUCCESS":
+            raise SmartSimError("Cluster status verification failed")
 
     def get_address(self):
         """Return database addresses
@@ -302,9 +264,9 @@ class Orchestrator(EntityList):
 
     @staticmethod
     def _find_redis_start_script():
-        current_dir = Path(os.path.dirname(os.path.abspath(__file__)))
-        script_path = current_dir.joinpath("redis_starter.py").resolve()
-        return str(script_path)
+        task = tasks.find_smartsim_file("database/redis_starter.py")
+        result = task.wait()
+        return result
 
     def _check_network_interface(self):
         net_if_addrs = psutil.net_if_addrs()
