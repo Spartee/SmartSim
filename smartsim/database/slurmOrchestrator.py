@@ -284,8 +284,8 @@ class SlurmOrchestrator(Orchestrator):
                     "--port",  # redis port
                     str(next_port),  # port number
                 ]
-                if cluster:
-                    start_script_args += self._get_cluster_args(db_node_name, next_port)
+                #if cluster:
+                #    start_script_args += self._get_cluster_args(db_node_name, next_port)
 
                 exe_args.append(" ".join(start_script_args))
                 ports.append(next_port)

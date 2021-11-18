@@ -169,7 +169,7 @@ class SlurmLauncher(WLMLauncher):
         step_info.status = STATUS_CANCELLED  # set status to cancelled instead of failed
         return step_info
 
-    def _get_slurm_step_id(self, step, interval=2, trials=5):
+    def _get_slurm_step_id(self, step, interval=4, trials=5):
         """Get the step_id of a step from sacct
 
         Parses sacct output by looking for the step name

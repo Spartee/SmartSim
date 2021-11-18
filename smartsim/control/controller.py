@@ -333,7 +333,7 @@ class Controller:
         # create the database cluster
         if orchestrator.num_shards > 2:
             num_trials = 5
-            cluster_created = False
+            cluster_created = True # FALSEEEEEEEEEE LOOK HEREE
             while not cluster_created:
                 try:
                     orchestrator.create_cluster()
