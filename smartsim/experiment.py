@@ -31,13 +31,13 @@ from pprint import pformat
 
 import pandas as pd
 from tqdm import trange
-from .core.control import Controller
 from .core.manifest import Manifest
 from .entity import Ensemble, Model
 from .error import SmartSimError
 from .generation import Generator
 from .utils import get_logger
 from .utils.helpers import colorize, init_default
+from .core.client.client import LocalClient
 
 logger = get_logger(__name__)
 
@@ -51,7 +51,7 @@ class Experiment:
     query the instances they create.
     """
 
-    def __init__(self, name, exp_path=None, launcher="local"):
+    def __init__(self, name, exp_path=None, launcher="local", backend="local"):
         """Example initialization
 
         .. highlight:: python
@@ -75,7 +75,12 @@ class Experiment:
                 raise NotADirectoryError("Experiment path provided does not exist")
             exp_path = osp.abspath(exp_path)
         self.exp_path = init_default(osp.join(getcwd(), name), exp_path, str)
-        self._control = Controller(launcher=launcher)
+        self.backend_client = LocalClient()
+        self._id = self.backend_client.create_exp(name,
+                                                  "", # description
+                                                  self.exp_path,
+                                                  launcher)
+
 
     def start(self, *args, block=True, summary=False):
         """Launch instances passed as arguments
@@ -98,7 +103,7 @@ class Experiment:
         try:
             if summary:
                 self._launch_summary(start_manifest)
-            self._control.start(manifest=start_manifest, block=block)
+            self.backend_client.start(manifest=start_manifest, block=block)
         except SmartSimError as e:
             logger.error(e)
             raise
@@ -114,10 +119,7 @@ class Experiment:
         """
         try:
             stop_manifest = Manifest(*args)
-            for entity in stop_manifest.models:
-                self._control.stop_entity(entity)
-            for entity_list in stop_manifest.all_entity_lists:
-                self._control.stop_entity_list(entity_list)
+            self.backend_client.stop(manifest=stop_manifest)
         except SmartSimError as e:
             logger.error(e)
             raise
@@ -151,7 +153,7 @@ class Experiment:
             logger.error(e)
             raise
 
-    def poll(self, interval=10, verbose=True):
+    def poll(self, *args, interval=10, verbose=True):
         """Monitor jobs through logging to stdout.
 
         This method should only be used if jobs were launched
@@ -165,7 +167,10 @@ class Experiment:
         :raises SmartSimError:
         """
         try:
-            self._control.poll(interval, verbose)
+            #self._control.poll(interval, verbose)
+            #TODO implement this
+            poll_manifest = Manifest(args*)
+            return self.backend_client.poll(poll_manifest, interval, verbose)
         except SmartSimError as e:
             logger.error(e)
             raise
@@ -184,6 +189,7 @@ class Experiment:
                                by this ``Experiment``
         """
         try:
+            # TODO implement this
             return self._control.finished(entity)
         except SmartSimError as e:
             logger.error(e)
@@ -202,15 +208,7 @@ class Experiment:
         """
         try:
             manifest = Manifest(*args)
-            statuses = []
-            for entity in manifest.models:
-                statuses.append(self._control.get_entity_status(entity))
-            for entity_list in manifest.ensembles:
-                statuses.extend(self._control.get_entity_list_status(entity_list))
-            orchestrator = manifest.db
-            if orchestrator:
-                statuses.extend(self._control.get_entity_list_status(orchestrator))
-            return statuses
+            self.backend_client.get_status(manifest)
         except SmartSimError as e:
             logger.error(e)
             raise

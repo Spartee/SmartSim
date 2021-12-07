@@ -5,10 +5,9 @@ from sqlalchemy.sql.expression import select
 from sqlalchemy.sql.schema import ForeignKey
 from sqlalchemy.sql.sqltypes import Date, DateTime
 
-from ..schemas.enums import JobType, AppType
 
 from ..db.session import DBBase
-from ...common.constants import Status, Launcher
+from ...common.enums import Status, Launcher
 
 class BaseProto(DBBase):
     """Base data model for all objects"""
@@ -28,10 +27,6 @@ class ExperimentProto(BaseProto):
     launcher = Column(String(20), default=Launcher.local)
     description = Column(String)
 
-    # all below Proto contain a .experiment attribute because of these backrefs
-    models = relationship("ModelProto", backref="experiment")
-    ensembles = relationship("EnsembleProto", backref="experiment")
-    apps = relationship("AppProto", backref="experiment")
     jobs = relationship("JobProto", backref="experiment")
 
 
@@ -43,81 +38,67 @@ class JobProto(BaseProto):
     status = Column(String(20), default=Status.STATUS_NEW, index=True)
     job_type = Column(String(20))
     entity_type = Column(String(20))
+    entity_name = Column(String(60))
     task_ids = Column(PickleType, nullable=True)
     wlm_id = Column(String(20), nullable=True)
     start_date = Column(DateTime, nullable=True)
     end_date = Column(DateTime, nullable=True)
-    job_data = Column(PickleType, nullable=True)
+    job_data = Column(PickleType, nullable=False, default={})
 
     experiment_id = Column(
         Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
     )
 
-class ModelProto(BaseProto):
-    __tablename__ = "models"
+    def set_hosts(self, hosts):
+        """Set the hosts for the job
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(60), unique=True, index=True)
-    path = Column(String(256))
-    params = Column(PickleType)
-    run_settings = Column(PickleType)
+        :param hosts: A list of hosts
+        :type hosts: list
+        """
+        self.job_data["hosts"] = hosts
 
-    experiment_id = Column(
-        Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
-    )
-    # also contains a .ensemble attribute b/c of backref in ensemble
-    ensemble_id = Column(
-        Integer, ForeignKey("ensembles.id", ondelete="CASCADE"), nullable=True
-    )
+    def get_hosts(self):
+        """Get compute hosts for a job
 
-class EnsembleProto(BaseProto):
-    __tablename__ = "ensembles"
+        :returns: A list of compute hosts if set
+        :rtype: list | None
+        """
+        #TODO come back to this
+        try:
+            return self.job_data["hosts"]
+        except KeyError:
+            return None
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(255), unique=True, index=True)
-    path = Column(String(255))
-    params = Column(PickleType, nullable=True)
-    run_settings = Column(PickleType)
-    batch_settings = Column(PickleType, nullable=True)
+    def error_report(self):
+        """A descriptive error report based on job fields
 
-    experiment_id = Column(
-        Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
-    )
-    models = relationship("ModelProto", backref="ensemble")
+        :return: error report for display in terminal
+        :rtype: str
+        """
+        warning = f"{self.ename} failed. See below for details \n"
+        if self.error:
+            warning += (
+                f"{self.entity.type} {self.ename} produced the following error \n"
+            )
+            warning += f"Error: {self.error} \n"
+        if self.output:
+            warning += f"Output: {self.output} \n"
+        warning += f"Job status at failure: {self.status} \n"
+        warning += f"Launcher status at failure: {self.raw_status} \n"
+        warning += f"Job returncode: {self.returncode} \n"
+        warning += f"Error and output file located at: {self.entity.path}"
+        return warning
 
+    def __str__(self):
+        """Return user-readable string of the Job
 
-class AppWorkerProto(BaseProto):
-    __tablename__ = "app_components"
+        :returns: A user-readable string of the Job
+        :rtype: str
+        """
+        if self.wlm_id:
+            job = "{}({}): {}"
+            return job.format(self.entity_name, self.wlm_id, self.status)
+        else:
+            job = "{}: {}"
+            return job.format(self.entity_name, self.status)
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(60), unique=True, index=True)
-    path = Column(String(256))
-    params = Column(PickleType)
-    run_settings = Column(PickleType)
-
-    is_master = Column(Boolean, default=False)
-    # also contains .app field from ApplicationProto.backref
-    app_id = Column(Integer, ForeignKey("apps.id", ondelete="CASCADE"), nullable=False)
-
-
-class AppProto(BaseProto):
-    __tablename__ = "apps"
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    name = Column(String(255), unique=True, index=True)
-    path = Column(String(255))
-    params = Column(PickleType, nullable=True)
-    run_settings = Column(PickleType)
-    batch_settings = Column(PickleType, nullable=True)
-
-    has_master = Column(Boolean, default=False)
-    app_type = Column(String(20))
-    batch = Column(Boolean)
-    launcher = Column(String(20))
-    app_data = Column(PickleType, nullable=True)
-
-    experiment_id = Column(
-        Integer, ForeignKey("experiments.id", ondelete="CASCADE"), nullable=False
-    )
-
-    components = relationship("AppWorkerProto", backref="app")

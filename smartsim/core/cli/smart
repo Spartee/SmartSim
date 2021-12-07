@@ -6,7 +6,6 @@ from pathlib import Path
 
 from smartsim.core.cli.build import Build
 from smartsim.core.cli.clean import Clean
-from smartsim.core.cli.session import Session
 from smartsim.core.cli.utils import  _get_install_path
 
 
@@ -14,7 +13,6 @@ def _usage():
     usage = [
         "smart <command> [<args>]\n",
         "Commands:",
-        "\tsession   Start a SmartSim session",
         "\tbuild     Build SmartSim dependencies (Redis, RedisAI, ML runtimes)",
         "\tclean     Remove previous ML runtime installation",
         "\tclobber   Remove all previous dependency installations",
@@ -43,9 +41,6 @@ class SmartCli:
             parser.print_help()
             exit(0)
         getattr(self, args.command)()
-
-    def session(self):
-        Session()
 
     def build(self):
         Build(self.install_path)

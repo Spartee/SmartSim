@@ -26,14 +26,11 @@
 
 # Constants for SmartSim
 import os
-from enum import Enum
+from .enums import Status
 
 PROJECT_NAME = "SmartSim"
 VERSION = "0.3.2"
 BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-API_PREFIX = "/api"
-SQLALCHEMY_DATABASE_URL: str = os.getenv('DATABASE_URI', f"sqlite:///{BASE_DIR}/foo.db")
-DEBUG=True
 
 # ML backend versions
 TF_VERSION = "2.4.0"
@@ -46,15 +43,6 @@ LOCAL_JM_INTERVAL = 2
 # Task Manager Interval
 TM_INTERVAL = 1
 
-# Statuses that are applied to jobs
-class Status(str, Enum):
-    STATUS_RUNNING = "Running"
-    STATUS_COMPLETED = "Completed"
-    STATUS_CANCELLED = "Cancelled"
-    STATUS_FAILED = "Failed"
-    STATUS_NEW = "New"
-    STATUS_PAUSED = "Paused"
-
 # Status groupings
 TERMINAL_STATUSES = (Status.STATUS_CANCELLED,
                      Status.STATUS_COMPLETED,
@@ -63,9 +51,3 @@ LIVE_STATUSES = (Status.STATUS_RUNNING,
                  Status.STATUS_PAUSED,
                  Status.STATUS_NEW)
 
-class Launcher(str, Enum):
-    slurm = "slurm"
-    pbs = "pbs"
-    lsf = "lsf"
-    cobalt = "cobalt"
-    local = "local"
