@@ -94,7 +94,7 @@ class LocalClient(BackendClient):
         self.__exp_id = exp_proto.id
 
     def start(self, manifest: Manifest, block: bool=True):
-
+        
 
     def stop(self, manifest: Manifest):
         pass

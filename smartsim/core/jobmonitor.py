@@ -116,35 +116,6 @@ class JobMonitor:
             self._lock.release()
 
 
-    def init_launcher(self, launcher):
-        """Initialize the controller with a specific type of launcher.
-
-        SmartSim currently supports slurm, pbs(pro), cobalt, lsf,
-        and local launching
-
-        :param launcher: which launcher to initialize
-        :type launcher: str
-        :raises SSUnsupportedError: if a string is passed that is not
-                                    a supported launcher
-        :raises SSConfigError: if no launcher argument is provided.
-        """
-        launcher_map = {
-            "slurm": SlurmLauncher,
-            "pbs": PBSLauncher,
-            "cobalt": CobaltLauncher,
-            "lsf": LSFLauncher,
-            "local": LocalLauncher
-        }
-
-        if launcher is not None:
-            launcher = launcher.lower()
-            if launcher in launcher_map:
-                # create new instance of the launcher
-                self.launcher = launcher_map[launcher]()
-            else:
-                raise SSUnsupportedError("Launcher type not supported: " + launcher)
-        else:
-            raise SSConfigError("Must provide a 'launcher' argument")
 
 
     def _thread_sleep(self):
