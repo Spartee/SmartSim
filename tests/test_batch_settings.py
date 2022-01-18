@@ -1,6 +1,6 @@
-from smartsim.settings import BsubBatchSettings, QsubBatchSettings, SbatchSettings
+import pytest
+from smartsim.settings import BsubBatchSettings, QsubBatchSettings, SbatchSettings, CobaltBatchSettings
 from smartsim.settings.settings import create_batch_settings
-
 
 def test_create_pbs_batch():
     pbs_batch = create_batch_settings(
@@ -56,3 +56,19 @@ def test_create_bsub():
     assert isinstance(bsub, BsubBatchSettings)
     args = bsub.format_batch_args()
     assert args == ["-core_isolation", "-nnodes 1", "-q default"]
+
+
+def test_auto_batch(wlmutils):
+    launcher = wlmutils.get_test_launcher()
+    if launcher == "local":
+        pytest.skip(reason="test irrelevant for local launcher")
+
+    fake_batch = create_batch_settings(launcher="auto", nodes=1)
+    if launcher == "lsf":
+        assert(isinstance(fake_batch, BsubBatchSettings))
+    elif launcher == "slurm":
+        assert(isinstance(fake_batch, SbatchSettings))
+    elif launcher == "pbs":
+        assert(isinstance(fake_batch, QsubBatchSettings))
+    elif launcher == "cobalt":
+        assert(isinstance(fake_batch, CobaltBatchSettings))
