@@ -1,0 +1,89 @@
+name: run-tests
+
+on: [push, pull_request]
+
+env:
+  HOMEBREW_NO_ANALYTICS: "ON" # Make Homebrew installation a little quicker
+  HOMEBREW_NO_AUTO_UPDATE: "ON"
+  HOMEBREW_NO_BOTTLE_SOURCE_FALLBACK: "ON"
+  HOMEBREW_NO_GITHUB_API: "ON"
+  HOMEBREW_NO_INSTALL_CLEANUP: "ON"
+
+
+jobs:
+  run_tests:
+    name: Run tests with ${{ matrix.os }}, Python ${{ matrix.py_v}}, Compiler ${{ matrix.compiler }}, RedisAI ${{ matrix.rai }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-10.15, ubuntu-20.04] # Operating systems
+        compiler: [intel, 8] # intel compiler, and versions of GNU compiler
+        rai: [1.2.3, 1.2.5] # Redis AI versions
+        py_v: [3.7, 3.8, 3.9] # Python versions
+        exclude:
+          - os: macos-10.15
+            compiler: intel
+          - os: macos-10.15 # Do not build with Redis AI on MacOS
+            rai: 1.2.5
+
+    env:
+      GCC_V: ${{ matrix.compiler }} # used when the compiler is GNU
+      SMARTSIM_REDISAI: ${{ matrix.rai }}
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.py_v }}
+
+      - name: Install build-essentials
+        if: contains( matrix.os, 'ubuntu' )
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          sudo apt-get install -y wget
+
+      - name: Install GNU make for MacOS
+        if: "contains( matrix.os, 'macos' )"
+        run: brew install make || true
+
+      - name: Install Intel compiler on Linux
+        if: "contains( matrix.compiler, 'intel' ) && contains( matrix.os, 'ubuntu')"
+        run: |
+          wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB &&
+          sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB &&
+          rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB &&
+          echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list &&
+          sudo apt-get update &&
+          sudo apt-get install intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic &&
+          echo "$(cat /opt/intel/oneapi/setvars.sh)" &&
+          source /opt/intel/oneapi/setvars.sh &&
+          printenv >> $GITHUB_ENV &&
+          echo "CC=icc" >> $GITHUB_ENV &&
+          echo "CXX=icpc" >> $GITHUB_ENV
+
+      - name: Install SmartSim on MacOS
+        if: contains( matrix.os, 'macos' )
+        run: |
+          echo "$(brew --prefix)/opt/make/libexec/gnubin" >> $GITHUB_PATH
+          python -m pip install .[dev,ml,ray]
+
+      - name: Install SmartSim on Ubuntu
+        if: contains( matrix.os, 'ubuntu' )
+        run: |
+          python -m pip install .[dev,ml,ray]
+
+      - name: Install ML Runtimes with Smart
+        if: contains( matrix.os, 'macos' )
+        run: smart build --device cpu -v
+
+      - name: Install ML Runtimes with Smart (with pt, tf, and onnx support)
+        if: contains( matrix.os, 'ubuntu' )
+        run: smart build --device cpu --onnx -v
+
+      - name: Run Pytest
+        run: |
+          echo "SMARTSIM_LOG_LEVEL=debug" >> $GITHUB_ENV
+          py.test -s --import-mode=importlib -o log_cli=true
