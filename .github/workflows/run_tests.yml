@@ -77,7 +77,7 @@ jobs:
       - name: Install SmartSim on Ubuntu
         if: contains( matrix.os, 'ubuntu' )
         run: |
-          python -m pip install .[dev,ml,ray]
+          pip install -e .[dev,ml,ray]
 
       - name: Install ML Runtimes with Smart
         if: contains( matrix.os, 'macos' )
